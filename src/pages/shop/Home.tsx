@@ -2,10 +2,19 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Star, ShieldCheck, Truck, RefreshCcw } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { ProductCard } from '@/src/components/shop/ProductCard';
-import { products, categories } from '@/src/data/mockData';
+import { useProducts } from '@/src/hooks/useProducts';
 import { motion } from 'motion/react';
 
+const categories = [
+  'Electronics',
+  'Clothing',
+  'Home & Kitchen',
+  'Sports',
+  'Books',
+];
+
 export function Home() {
+  const { products, loading } = useProducts();
   const featuredProducts = products.slice(0, 4);
 
   return (
@@ -113,11 +122,30 @@ export function Home() {
             View All <ArrowRight className="ml-1 h-4 w-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {featuredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="aspect-square rounded-lg bg-slate-200 dark:bg-slate-800 mb-4"></div>
+                <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-3/4 mb-2"></div>
+                <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/4"></div>
+              </div>
+            ))}
+          </div>
+        ) : featuredProducts.length > 0 ? (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {featuredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-slate-500 dark:text-slate-400">No products available yet. Add some from the admin panel!</p>
+            <Button asChild className="mt-4">
+              <Link to="/admin/products">Add Products</Link>
+            </Button>
+          </div>
+        )}
       </section>
 
       {/* Promotional Banner */}

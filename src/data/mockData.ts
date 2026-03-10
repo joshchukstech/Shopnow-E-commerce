@@ -112,8 +112,45 @@ export const users = [
 ];
 
 export const orders = [
-  { id: 'ORD-001', customer: 'John Doe', date: '2023-10-25', total: 329.98, status: 'Delivered' },
-  { id: 'ORD-002', customer: 'Alice Brown', date: '2023-10-26', total: 89.99, status: 'Shipped' },
-  { id: 'ORD-003', customer: 'Charlie Davis', date: '2023-10-27', total: 199.50, status: 'Pending' },
-  { id: 'ORD-004', customer: 'Eva Green', date: '2023-10-28', total: 45.00, status: 'Processing' },
+  { 
+    id: 'ORD-001', 
+    customer: 'John Doe', 
+    date: '2023-10-25', 
+    total: 329.98, 
+    status: 'Delivered',
+    items: [
+      { name: 'Wireless Noise-Cancelling Headphones', quantity: 1, price: 299.99 },
+      { name: 'Organic Cotton T-Shirt', quantity: 1, price: 29.99 },
+    ]
+  },
+  { 
+    id: 'ORD-002', 
+    customer: 'Alice Brown', 
+    date: '2023-10-26', 
+    total: 89.99, 
+    status: 'Shipped',
+    items: [
+      { name: 'Professional Chef Knife', quantity: 1, price: 89.99 },
+    ]
+  },
+  { 
+    id: 'ORD-003', 
+    customer: 'Charlie Davis', 
+    date: '2023-10-27', 
+    total: 199.50, 
+    status: 'Pending',
+    items: [
+      { name: 'Minimalist Smartwatch', quantity: 1, price: 199.50 },
+    ]
+  },
+  { 
+    id: 'ORD-004', 
+    customer: 'Eva Green', 
+    date: '2023-10-28', 
+    total: 45.00, 
+    status: 'Processing',
+    items: [
+      { name: 'Yoga Mat with Alignment Lines', quantity: 1, price: 45.00 },
+    ]
+  },
 ];

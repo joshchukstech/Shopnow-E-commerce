@@ -1,24 +1,75 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Eye, X } from 'lucide-react';
-import { orders as initialOrders } from '@/src/data/mockData';
+import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { db } from '@/src/lib/firebase';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { toast } from 'sonner';
 
+interface OrderItem {
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+interface Order {
+  id: string;
+  customer: string;
+  date: string;
+  total: number;
+  status: string;
+  items: OrderItem[];
+}
+
 export function Orders() {
-  const [orders, setOrders] = useState(initialOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'orders'));
+      const ordersData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Order[];
+      setOrders(ordersData);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      toast.error('Failed to load orders');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredOrders = orders.filter((o) =>
     o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
     o.customer.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const updateStatus = (id: string, newStatus: string) => {
-    setOrders(orders.map((o) => o.id === id ? { ...o, status: newStatus } : o));
-    toast.success(`Order status updated to ${newStatus}`);
+  const updateStatus = async (id: string, newStatus: string) => {
+    try {
+      await updateDoc(doc(db, 'orders', id), { status: newStatus });
+      setOrders(orders.map((o) => o.id === id ? { ...o, status: newStatus } : o));
+      toast.success(`Order status updated to ${newStatus}`);
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      toast.error('Failed to update order status');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500 dark:text-slate-400">Loading orders...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -124,11 +175,13 @@ export function Orders() {
 
               <div>
                 <h3 className="mb-2 font-bold text-slate-900 dark:text-white">Items</h3>
-                <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600 dark:text-slate-400">1x Sample Product</span>
-                    <span className="font-medium text-slate-900 dark:text-white">${selectedOrder.total.toFixed(2)}</span>
-                  </div>
+                <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800 space-y-2">
+                  {selectedOrder.items?.map((item, index) => (
+                    <div key={index} className="flex justify-between text-sm">
+                      <span className="text-slate-600 dark:text-slate-400">{item.quantity}x {item.name}</span>
+                      <span className="font-medium text-slate-900 dark:text-white">${item.price.toFixed(2)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

@@ -1,39 +1,137 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, X } from 'lucide-react';
-import { products as initialProducts } from '@/src/data/mockData';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { db } from '@/src/lib/firebase';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { toast } from 'sonner';
 
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  discount: number;
+  rating: number;
+  reviews: number;
+  category: string;
+  image: string;
+  description: string;
+  isNew: boolean;
+}
+
 export function Products() {
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    price: '',
+    category: 'Electronics',
+    image: '',
+    description: '',
+  });
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'products'));
+      const productsData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Product[];
+      setProducts(productsData);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast.error('Failed to load products');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredProducts = products.filter((p) =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
-      setProducts(products.filter((p) => p.id !== id));
-      toast.success('Product deleted successfully');
+      try {
+        await deleteDoc(doc(db, 'products', id));
+        setProducts(products.filter((p) => p.id !== id));
+        toast.success('Product deleted successfully');
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        toast.error('Failed to delete product');
+      }
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsModalOpen(false);
-    toast.success(editingProduct ? 'Product updated successfully' : 'Product added successfully');
-    setEditingProduct(null);
+    try {
+      const productData = {
+        name: formData.name,
+        price: parseFloat(formData.price),
+        discount: 0,
+        rating: 0,
+        reviews: 0,
+        category: formData.category,
+        image: formData.image,
+        description: formData.description,
+        isNew: true,
+      };
+
+      if (editingProduct) {
+        await updateDoc(doc(db, 'products', editingProduct.id), productData);
+        setProducts(products.map((p) => p.id === editingProduct.id ? { ...p, ...productData } : p));
+        toast.success('Product updated successfully');
+      } else {
+        const docRef = await addDoc(collection(db, 'products'), productData);
+        setProducts([...products, { id: docRef.id, ...productData }]);
+        toast.success('Product added successfully');
+      }
+      setIsModalOpen(false);
+      setEditingProduct(null);
+      setFormData({ name: '', price: '', category: 'Electronics', image: '', description: '' });
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast.error('Failed to save product');
+    }
   };
 
-  const openModal = (product: any = null) => {
+  const openModal = (product: Product | null = null) => {
+    if (product) {
+      setFormData({
+        name: product.name,
+        price: product.price.toString(),
+        category: product.category,
+        image: product.image,
+        description: product.description,
+      });
+    } else {
+      setFormData({ name: '', price: '', category: 'Electronics', image: '', description: '' });
+    }
     setEditingProduct(product);
     setIsModalOpen(true);
   };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500 dark:text-slate-400">Loading products...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -81,9 +179,15 @@ export function Products() {
                   <td className="px-6 py-4">{product.category}</td>
                   <td className="px-6 py-4">${product.price.toFixed(2)}</td>
                   <td className="px-6 py-4">
-                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
-                      In Stock
-                    </span>
+                    {product.price > 0 ? (
+                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        In Stock
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                        Out of Stock
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
@@ -118,35 +222,44 @@ export function Products() {
             <form onSubmit={handleSave} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Product Name</label>
-                <Input required defaultValue={editingProduct?.name} />
+                <Input name="name" value={formData.name} onChange={handleInputChange} required />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Price</label>
-                  <Input type="number" step="0.01" required defaultValue={editingProduct?.price} />
+                  <Input name="price" type="number" step="0.01" value={formData.price} onChange={handleInputChange} required />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Category</label>
-                  <select className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:text-slate-50">
+                  <select 
+                    name="category"
+                    value={formData.category} 
+                    onChange={handleInputChange}
+                    className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:text-slate-50"
+                  >
                     <option value="Electronics">Electronics</option>
                     <option value="Clothing">Clothing</option>
-                    <option value="Home">Home & Kitchen</option>
+                    <option value="Home & Kitchen">Home & Kitchen</option>
+                    <option value="Sports">Sports</option>
+                    <option value="Books">Books</option>
                   </select>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Image URL</label>
-                <Input type="url" required defaultValue={editingProduct?.image} />
+                <Input name="image" type="url" value={formData.image} onChange={handleInputChange} required />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Description</label>
                 <textarea 
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
                   className="flex min-h-[80px] w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:text-slate-50"
                   required
-                  defaultValue={editingProduct?.description}
                 />
               </div>
 

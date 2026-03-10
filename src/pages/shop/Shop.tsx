@@ -2,13 +2,22 @@ import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Filter, ChevronDown, X, Search } from 'lucide-react';
 import { ProductCard } from '@/src/components/shop/ProductCard';
-import { products, categories } from '@/src/data/mockData';
+import { useProducts } from '@/src/hooks/useProducts';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+
+const categories = [
+  'Electronics',
+  'Clothing',
+  'Home & Kitchen',
+  'Sports',
+  'Books',
+];
 
 export function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const { products, loading } = useProducts();
 
   // Filters state
   const categoryFilter = searchParams.get('category');
@@ -53,7 +62,7 @@ export function Shop() {
     }
 
     return result;
-  }, [categoryFilter, searchQuery, priceRange, sortOption]);
+  }, [products, categoryFilter, searchQuery, priceRange, sortOption]);
 
   const updateSort = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newParams = new URLSearchParams(searchParams);
@@ -80,7 +89,7 @@ export function Shop() {
             {categoryFilter ? categoryFilter : searchQuery ? `Search: ${searchQuery}` : 'All Products'}
           </h1>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Showing {filteredProducts.length} results
+            {loading ? 'Loading...' : `Showing ${filteredProducts.length} results`}
           </p>
         </div>
 
@@ -173,7 +182,17 @@ export function Shop() {
 
         {/* Product Grid */}
         <div className="flex-1">
-          {filteredProducts.length > 0 ? (
+          {loading ? (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {[1,2,3,4,5,6,7,8].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="aspect-square rounded-lg bg-slate-200 dark:bg-slate-800 mb-4"></div>
+                  <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/4"></div>
+                </div>
+              ))}
+            </div>
+          ) : filteredProducts.length > 0 ? (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Star, Minus, Plus, ShoppingCart, Heart, Truck, ShieldCheck, ArrowLeft } from 'lucide-react';
-import { products } from '@/src/data/mockData';
+import { useProduct } from '@/src/hooks/useProducts';
 import { Button } from '@/src/components/ui/Button';
 import { useCart } from '@/src/context/CartContext';
 import { useWishlist } from '@/src/context/WishlistContext';
@@ -11,17 +11,35 @@ import { toast } from 'sonner';
 export function ProductDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const product = products.find((p) => p.id === id);
+  const { product, loading, error } = useProduct(id || '');
   const [quantity, setQuantity] = useState(1);
   
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { isAuthenticated } = useAuth();
 
-  if (!product) {
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-20">
+        <div className="animate-pulse">
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-2">
+            <div className="aspect-square rounded-2xl bg-slate-200 dark:bg-slate-800"></div>
+            <div className="space-y-4">
+              <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/4"></div>
+              <div className="h-8 bg-slate-200 dark:bg-slate-800 rounded w-3/4"></div>
+              <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
     return (
       <div className="container mx-auto px-4 py-20 text-center">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Product not found</h2>
+        <p className="text-slate-500 dark:text-slate-400 mt-2">The product you're looking for doesn't exist.</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate('/shop')}>
           Back to Shop
         </Button>
@@ -111,12 +129,12 @@ export function ProductDetails() {
               {[...Array(5)].map((_, i) => (
                 <Star
                   key={i}
-                  className={`h-5 w-5 ${i < Math.floor(product.rating) ? 'fill-yellow-400 text-yellow-400' : 'fill-slate-200 text-slate-200 dark:fill-slate-800 dark:text-slate-800'}`}
+                  className={`h-5 w-5 ${i < Math.floor(product.rating || 0) ? 'fill-yellow-400 text-yellow-400' : 'fill-slate-200 text-slate-200 dark:fill-slate-800 dark:text-slate-800'}`}
                 />
               ))}
             </div>
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{product.rating} Rating</span>
-            <span className="text-sm text-slate-500 dark:text-slate-400">({product.reviews} reviews)</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{product.rating || 0} Rating</span>
+            <span className="text-sm text-slate-500 dark:text-slate-400">({product.reviews || 0} reviews)</span>
           </div>
 
           <div className="mb-6 flex items-end gap-4 border-b border-slate-200 pb-6 dark:border-slate-800">

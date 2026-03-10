@@ -1,36 +1,84 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Trash2, Shield, User as UserIcon } from 'lucide-react';
-import { users as initialUsers } from '@/src/data/mockData';
+import { collection, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { db } from '@/src/lib/firebase';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { toast } from 'sonner';
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+}
+
 export function Users() {
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'users'));
+      const usersData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as User[];
+      setUsers(usersData);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast.error('Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredUsers = users.filter((u) =>
     u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
-      setUsers(users.filter((u) => u.id !== id));
-      toast.success('User deleted successfully');
+      try {
+        await deleteDoc(doc(db, 'users', id));
+        setUsers(users.filter((u) => u.id !== id));
+        toast.success('User deleted successfully');
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        toast.error('Failed to delete user');
+      }
     }
   };
 
-  const toggleRole = (id: string) => {
-    setUsers(users.map((u) => {
-      if (u.id === id) {
-        const newRole = u.role === 'Admin' ? 'Customer' : 'Admin';
-        toast.success(`User role updated to ${newRole}`);
-        return { ...u, role: newRole };
-      }
-      return u;
-    }));
+  const toggleRole = async (id: string) => {
+    try {
+      const user = users.find((u) => u.id === id);
+      if (!user) return;
+      
+      const newRole = user.role === 'Admin' ? 'Customer' : 'Admin';
+      await updateDoc(doc(db, 'users', id), { role: newRole });
+      setUsers(users.map((u) => u.id === id ? { ...u, role: newRole } : u));
+      toast.success(`User role updated to ${newRole}`);
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      toast.error('Failed to update user role');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500 dark:text-slate-400">Loading users...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

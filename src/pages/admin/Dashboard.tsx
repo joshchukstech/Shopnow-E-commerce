@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { DollarSign, Package, ShoppingCart, Users } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { products, orders, users } from '@/src/data/mockData';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/src/lib/firebase';
 
 const data = [
   { name: 'Mon', sales: 4000 },
@@ -12,8 +14,74 @@ const data = [
   { name: 'Sun', sales: 3490 },
 ];
 
+interface Order {
+  id: string;
+  customer: string;
+  date: string;
+  total: number;
+  status: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+}
+
+interface User {
+  id: string;
+}
+
 export function Dashboard() {
-  const totalSales = orders.reduce((acc, order) => acc + order.total, 0);
+  const [totalSales, setTotalSales] = useState(0);
+  const [productsCount, setProductsCount] = useState(0);
+  const [ordersCount, setOrdersCount] = useState(0);
+  const [usersCount, setUsersCount] = useState(0);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      const [productsSnap, ordersSnap, usersSnap] = await Promise.all([
+        getDocs(collection(db, 'products')),
+        getDocs(collection(db, 'orders')),
+        getDocs(collection(db, 'users')),
+      ]);
+
+      const products = productsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Product[];
+      const orders = ordersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Order[];
+      const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as User[];
+
+      setProductsCount(products.length);
+      setOrdersCount(orders.length);
+      setUsersCount(users.length);
+      
+      const total = orders.reduce((acc, order) => acc + (order.total || 0), 0);
+      setTotalSales(total);
+
+      const sortedOrders = [...orders].sort((a, b) => {
+        const dateA = new Date(a.date || 0);
+        const dateB = new Date(b.date || 0);
+        return dateB.getTime() - dateA.getTime();
+      });
+      setRecentOrders(sortedOrders.slice(0, 5));
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500 dark:text-slate-400">Loading dashboard...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -39,7 +107,7 @@ export function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Products</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{products.length}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{productsCount}</p>
             </div>
             <div className="rounded-full bg-indigo-100 p-3 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
               <Package className="h-6 w-6" />
@@ -51,7 +119,7 @@ export function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Orders</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{orders.length}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{ordersCount}</p>
             </div>
             <div className="rounded-full bg-amber-100 p-3 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
               <ShoppingCart className="h-6 w-6" />
@@ -63,7 +131,7 @@ export function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Customers</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{users.length}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{usersCount}</p>
             </div>
             <div className="rounded-full bg-blue-100 p-3 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
               <Users className="h-6 w-6" />
@@ -108,12 +176,12 @@ export function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {orders.slice(0, 5).map((order) => (
+              {recentOrders.map((order) => (
                 <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
                   <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{order.id}</td>
                   <td className="px-6 py-4">{order.customer}</td>
                   <td className="px-6 py-4">{order.date}</td>
-                  <td className="px-6 py-4">${order.total.toFixed(2)}</td>
+                  <td className="px-6 py-4">${(order.total || 0).toFixed(2)}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       order.status === 'Delivered' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' :
